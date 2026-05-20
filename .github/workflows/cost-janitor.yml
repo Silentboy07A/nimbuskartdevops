@@ -1,4 +1,3 @@
-
 name: Cost Janitor
 
 on:
@@ -14,9 +13,13 @@ jobs:
 
     services:
       localstack:
-        image: localstack/localstack
+        image: localstack/localstack:latest
         ports:
           - 4566:4566
+        env:
+          SERVICES: ec2,s3,iam
+          DEBUG: 1
+          DOCKER_HOST: unix:///var/run/docker.sock
 
     env:
       AWS_ACCESS_KEY_ID: test
@@ -39,6 +42,11 @@ jobs:
         run: |
           pip install terraform-local
           pip install -r janitor/requirements.txt
+
+      - name: Wait for LocalStack
+        run: |
+          sleep 15
+          curl http://localhost:4566/_localstack/health
 
       - name: Terraform Init
         working-directory: terraform
