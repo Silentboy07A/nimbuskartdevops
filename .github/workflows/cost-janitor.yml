@@ -1,0 +1,64 @@
+
+name: Cost Janitor
+
+on:
+  pull_request:
+
+jobs:
+  janitor:
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack
+        ports:
+          - 4566:4566
+
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install Dependencies
+        run: |
+          pip install terraform-local
+          pip install -r janitor/requirements.txt
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: tflocal init
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: tflocal apply -auto-approve
+
+      - name: Run Cost Janitor
+        working-directory: janitor
+        run: python janitor.py --dry-run
+        continue-on-error: true
+
+      - name: Upload JSON Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-json
+          path: janitor/report.json
+
+      - name: Upload Markdown Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-md
+          path: janitor/report.md
